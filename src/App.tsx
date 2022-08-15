@@ -1,9 +1,11 @@
 
 import './App.css';
 
-import { useState } from 'react'
-
 import { Button, IconButton } from '@mui/material';
+
+import React, { useEffect, useState } from 'react';
+import useChannel from './useChannel';
+
 
 enum Category {
   Games = "Games",
@@ -14,6 +16,12 @@ enum Category {
 }
 
 
+export interface MacaMessage {
+  id: string;
+  type: string;
+  subtype?: string;
+  parameters?: Map<string, object>;
+}
 
 async function getResources(category: Category): Promise<Resource[]> {
   try {
@@ -27,6 +35,10 @@ async function getResources(category: Category): Promise<Resource[]> {
   }
 }
 
+function send(msg: MacaMessage) {
+  console.log(msg)
+}
+
 type Resource = {
   title: string;
   category: Category;
@@ -35,6 +47,7 @@ type Resource = {
 function MyButton({ setResources, category }: { setResources: React.Dispatch<React.SetStateAction<Resource[]>>, category: Category }) {
 
   function handleClick(): void {
+    send({ id: "1234", type: "asdasd" })
     getResources(category)
       .then(rs => setResources(rs))
   }
@@ -72,6 +85,53 @@ function Buttons({ categories, setResources }: { categories: Category[], setReso
   const buttons = categories.map(c => <MyButton category={c} setResources={setResources} />)
   return <div>{buttons}</div>
 }
+
+function ServerTimeDisplay() {
+  const [serverTimeChannel] = useChannel({ channelName: 'time' });
+  const READ_SERVER_TIME_MESSAGE = 'read_server_time';
+  const [serverTime, setServerTime] = useState(null);
+
+  // listening for messages from the channel
+  useEffect(() => {
+    if (!serverTimeChannel) return;
+
+    //the LOAD_SCREENSHOT_MESSAGE is a message defined by the server
+    const subRef = serverTimeChannel.on(READ_SERVER_TIME_MESSAGE, response => {
+      setServerTime(response.data.server_time);
+    });
+
+    // stop listening to this message before the component unmounts
+    return () => {
+      serverTimeChannel.off(READ_SERVER_TIME_MESSAGE, subRef);
+    };
+  }, [serverTimeChannel]);
+
+  // pushing messages to the channel
+  useEffect(() => {
+    if (!serverTimeChannel) return;
+
+    serverTimeChannel.push(READ_SERVER_TIME_MESSAGE, { time: "now" });
+  }, []);
+  // here, we only push to the channel once on initial render
+  // but when you push to the channel will vary across use cases
+
+  return (
+    <div>
+      <h1>Time</h1>
+      <div>
+        {serverTime ? (
+          serverTime
+        ) : (
+          <div>
+            Loading...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+}
+
 
 export default function MyApp() {
 
