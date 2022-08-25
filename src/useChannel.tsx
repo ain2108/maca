@@ -1,33 +1,61 @@
-import { useState, useContext, useEffect } from 'react';
+import { useState, useContext, useEffect, useRef } from 'react';
 import { PhoenixSocketContext } from './PhoenixSocketContext';
-import { Channel } from 'phoenix'
+import { Channel, Push } from 'phoenix'
 
-function useChannel({ channelName }: { channelName: string }) {
+export default function useChannel(topic: string, params: any, onJoin: any) {
 
-    const [channel, setChannel] = useState<Channel | null>(null);
     const socket = useContext(PhoenixSocketContext);
+    const [channel, setChannel] = useState<Channel | null>(null);
+
+    // TODO: Understand how this works
+    const onJoinFun = useRef(onJoin);
+    onJoinFun.current = onJoin;
+
 
     // Runs on component updates
     useEffect(() => {
 
-        if (!socket) return;
+        if (socket === null) return;
 
-        const phoenixChannel = socket.channel(channelName);
+        const ch = socket.channel(topic, params);
 
-        // If connecteed to channel well, set it
-        phoenixChannel?.join().receive('ok', () => {
-            setChannel(phoenixChannel);
+        ch.join().receive('ok', message => {
+            onJoinFun.current(ch, message)
         });
+        setChannel(ch);
 
         // leave the channel when the component unmounts
         return () => {
-            phoenixChannel.leave();
+            ch.leave();
+            setChannel(null);
         };
-    }, []);
-    // only connect to the channel once on component mount
-    // by passing the empty array as a second arg to useEffect
+    }, [socket, topic, params]);
 
-    return [channel];
+    return channel;
 };
 
-export default useChannel;
+function pushPromise(push: Push) {
+    return new Promise((resolve, reject) => {
+        if (!push) {
+            return reject("no push")
+        }
+        push.receive('ok', resolve).receive('error', reject);
+    })
+}
+
+export function sendMessage(channel: Channel, event: string, payload: any) {
+    return pushPromise(channel.push(event, payload));
+}
+
+export function useEventHandler(channel: Channel, event: string, handler: any) {
+    const handlerRef = useRef(handler);
+    handlerRef.current = handler
+
+    useEffect(() => {
+        if (channel === null) return;
+
+        const ref = channel.on(event, message => handlerRef.current(message))
+
+        return () => channel.off(event, ref)
+    }, [channel, event])
+}

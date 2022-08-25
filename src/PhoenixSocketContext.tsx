@@ -6,16 +6,20 @@ import { Socket } from 'phoenix';
 
 const PhoenixSocketContext = createContext<Socket | null>(null);
 
-function PhoenixSocketProvider({ children }: { children: any }) {
+function PhoenixSocketProvider(children: any, options: any, url: string) {
     const [socket, setSocket] = useState<Socket | null>(null);
 
     useEffect(() => {
-        const socket = new Socket('/socket');
-        socket.connect();
-        setSocket(socket);
-    });
+        const s = new Socket(url, options)
+        s.connect()
+        setSocket(s)
 
-    if (!socket) return null;
+        return () => {
+            s.disconnect()
+            setSocket(null)
+        }
+
+    }, [options, url])
 
     return (
         <PhoenixSocketContext.Provider value={socket}>{children}</PhoenixSocketContext.Provider>

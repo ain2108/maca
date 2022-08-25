@@ -5,7 +5,7 @@ import { Button, IconButton } from '@mui/material';
 
 import React, { useEffect, useState } from 'react';
 import useChannel from './useChannel';
-
+import { PhoenixSocketContext, PhoenixSocketProvider } from './PhoenixSocketContext';
 
 enum Category {
   Games = "Games",
@@ -54,7 +54,6 @@ function MyButton({ setResources, category }: { setResources: React.Dispatch<Rea
 
   return (
     <Button onClick={handleClick} variant="text">{category}</Button>
-
   );
 }
 
@@ -91,9 +90,13 @@ function ServerTimeDisplay() {
   const READ_SERVER_TIME_MESSAGE = 'read_server_time';
   const [serverTime, setServerTime] = useState(null);
 
+
+  console.log("Component init")
+
   // listening for messages from the channel
   useEffect(() => {
     if (!serverTimeChannel) return;
+
 
     //the LOAD_SCREENSHOT_MESSAGE is a message defined by the server
     const subRef = serverTimeChannel.on(READ_SERVER_TIME_MESSAGE, response => {
@@ -108,7 +111,9 @@ function ServerTimeDisplay() {
 
   // pushing messages to the channel
   useEffect(() => {
+    console.log("Sending channel")
     if (!serverTimeChannel) return;
+    console.log("Sent to channel")
 
     serverTimeChannel.push(READ_SERVER_TIME_MESSAGE, { time: "now" });
   }, []);
@@ -144,6 +149,11 @@ export default function MyApp() {
       <h1>Welcome to Maca Bay</h1>
       <Buttons categories={Object.values(Category)} setResources={setResources} />
       <ResourceTable resources={resources} />
+      <PhoenixSocketProvider>
+        <ServerTimeDisplay />
+      </PhoenixSocketProvider>
+
+
 
     </div>
   );
